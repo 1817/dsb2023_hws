@@ -1,8 +1,12 @@
 ---
-title: "Homework 3: Databases, web scraping, and a basic Shiny app"
-author: "Your name goes here"
+title: 'Homework 3: Databases, web scraping, and a basic Shiny app'
+author: "Qi Ren"
 date: "`r Sys.Date()`"
 output:
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
   html_document:
     theme: flatly
     highlight: zenburn
@@ -10,8 +14,6 @@ output:
     toc: yes
     toc_float: yes
     code_folding: show
-  pdf_document:
-    toc: yes
 ---
 
 ```{r}
@@ -144,6 +146,42 @@ I would like you to write code that generates the following table.
 
 ```{r echo=FALSE, out.width="80%"}
 knitr::include_graphics(here::here("images", "total_donations_table.png"), error = FALSE)
+
+#intuition: year, name of party (instead of party_id alone), total_year_donations (from "value", mp_id, and party_id), prop of total party donations received in year
+
+library(lubridate)
+
+party_donations_db <- dplyr::tbl(sky_westminster, "party_donations")
+parties_db <- dplyr::tbl(sky_westminster, "parties")
+
+#calculate the total yearly donations per party
+total_donations <- party_donations_db %>% 
+  mutate(year = year(date)) %>% 
+  group_by(year, party_id) %>% 
+  mutate(total_year_donations = sum(value, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  
+  #calculate the yearly total of all party donations and finding the percentage each party receives
+  group_by(year) %>%
+  mutate(yearly_total = sum(value, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(prop = total_year_donations/yearly_total) %>% 
+  
+  #summarise into the required format
+  left_join(parties_db, by = c("party_id"="id")) %>%
+  summarise(year, name, total_year_donations, prop) %>%
+  distinct(year, name, .keep_all=TRUE) %>% 
+  collect()
+
+ggplot(total_donations, aes(x = year, y = total_year_donations, fill = reorder(name,-total_year_donations))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Conservatives captured majority of donations",
+       subtitle = "Donations to political parties, 2020-2022",
+       x = "Year",
+       y = "Total Donations") +
+  guides(fill = guide_legend(title = "Party"))
+
 ```
 
 ... and then, based on this data, plot the following graph.
@@ -230,7 +268,7 @@ We will scrape and work with data foreign connected PACs that donate to US polit
 
 All data come from [OpenSecrets.org](https://www.opensecrets.org), a *"website tracking the influence of money on U.S. politics, and how that money affects policy and citizens' lives"*.
 
-```{r, eval=FALSE}
+```{r}
 #| label: allow-scraping-opensecrets
 #| warning: false
 #| message: false
