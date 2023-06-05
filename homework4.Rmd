@@ -1,8 +1,12 @@
 ---
-title: "Homework 4: Machine Learning"
+title: 'Homework 4: Machine Learning'
 author: "qi ren"
 date: "`r Sys.Date()`"
 output:
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
   html_document:
     theme: flatly
     highlight: zenburn
@@ -10,8 +14,6 @@ output:
     toc: yes
     toc_float: yes
     code_folding: show
-  pdf_document:
-    toc: yes
 ---
 
 ```{r}
@@ -154,6 +156,8 @@ Write a paragraph discussing the output of the following
 
 films that failed the test have higher median imdb_rating and meta score than films that passed the test.
 
+Imdb_ratings are skewed to the right while meta-scores are normally distributed with mean score in the 50s.
+
 ```{r}
 bechdel %>% 
   group_by(genre, test) %>%
@@ -241,7 +245,7 @@ tree_preds %>%
 ```{r}
 draw_tree <- 
     rpart::rpart(
-        test ~ metascore + imdb_rating,
+        test ~ metascore + imdb_rating, # test is predicted by metascore + imdb_rating
         data = bechdel_train, # uses data that contains both birth weight and `low`
         control = rpart::rpart.control(maxdepth = 5, cp = 0, minsplit = 10)
     ) %>% 
@@ -546,8 +550,7 @@ HEADS UP
 
     **Model Specification**: A model specification is a precise description of the model that you are going to fit. This includes the computational method (e.g., linear regression, random forest, etc.) and the model parameters (also called hyperparameters). The Model specification does not contain any information about the data to be used.
 
-    **Workflow**: A workflow in tidymodels is a flexible way of tying together your modelling components (like pre-processing, feature engineering, and model fitting) in one object. It lets you specify a
-    model and a recipe (for data pre-processing) together. The workflow can then be estimated or used for prediction.
+    **Workflow**: A workflow in tidymodels is a flexible way of tying together your modelling components (like pre-processing, feature engineering, and model fitting) in one object. It lets you specify a model and a recipe (for data pre-processing) together. The workflow can then be estimated or used for prediction.
 
 3.  Do you need to add a formula (e.g., `test ~ .`) if you have a recipe?
 
@@ -565,7 +568,7 @@ You now have all your models. Adapt the code from slides `code-from-slides-CA-ho
 
 log_res <- log_wflow %>% 
   fit_resamples(
-    resamples = cv_folds, 
+    resamples = bechdel_folds, 
     metrics = metric_set(
       recall, precision, f_meas, accuracy,
       kap, roc_auc, sens, spec),
@@ -583,10 +586,10 @@ log_res %>%  collect_metrics(summarize = FALSE)
 
 log_pred <- log_res %>% collect_predictions()
 
-log_pred %>%  conf_mat(price_category, .pred_class) 
+log_pred %>%  conf_mat(test, .pred_class) 
 
 log_pred %>% 
-  conf_mat(price_category, .pred_class) %>% 
+  conf_mat(test, .pred_class) %>% 
   autoplot(type = "mosaic") +
   geom_label(aes(
       x = (xmax + xmin) / 2, 
@@ -595,7 +598,7 @@ log_pred %>%
 
 
 log_pred %>% 
-  conf_mat(price_category, .pred_class) %>% 
+  conf_mat(test, .pred_class) %>% 
   autoplot(type = "heatmap")
 
 
@@ -603,7 +606,7 @@ log_pred %>%
 
 log_pred %>% 
   group_by(id) %>% # id contains our folds
-  roc_curve(price_category, .pred_above) %>% 
+  roc_curve(test, .pred_Fail) %>% 
   autoplot()
 
 
@@ -612,7 +615,7 @@ log_pred %>%
 tree_res <-
   tree_wflow %>% 
   fit_resamples(
-    resamples = cv_folds, 
+    resamples = bechdel_folds, 
     metrics = metric_set(
       recall, precision, f_meas, 
       accuracy, kap,
@@ -628,7 +631,7 @@ tree_res %>%  collect_metrics(summarize = TRUE)
 rf_res <-
   rf_wflow %>% 
   fit_resamples(
-    resamples = cv_folds, 
+    resamples = bechdel_folds, 
     metrics = metric_set(
       recall, precision, f_meas, 
       accuracy, kap,
@@ -643,7 +646,7 @@ rf_res %>%  collect_metrics(summarize = TRUE)
 xgb_res <- 
   xgb_wflow %>% 
   fit_resamples(
-    resamples = cv_folds, 
+    resamples = bechdel_folds, 
     metrics = metric_set(
       recall, precision, f_meas, 
       accuracy, kap,
@@ -658,7 +661,7 @@ xgb_res %>% collect_metrics(summarize = TRUE)
 knn_res <- 
   knn_wflow %>% 
   fit_resamples(
-    resamples = cv_folds, 
+    resamples = bechdel_folds, 
     metrics = metric_set(
       recall, precision, f_meas, 
       accuracy, kap,
@@ -759,14 +762,14 @@ last_fit_xgb %>%
 
 last_fit_xgb %>%
   collect_predictions() %>% 
-  conf_mat(price_category, .pred_class) %>% 
+  conf_mat(test, .pred_class) %>% 
   autoplot(type = "heatmap")
 
 
 ## Final ROC curve
 last_fit_xgb %>% 
   collect_predictions() %>% 
-  roc_curve(price_category, .pred_above) %>% 
+  roc_curve(test, .pred_Fail) %>% 
   autoplot()
 
 
